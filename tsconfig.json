@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "module": "ES6",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "allowJs": false,
+    "target": "es2015",
+    "moduleResolution": "node",
+    "removeComments": false,
+    "noImplicitAny": true,
+    "sourceMap": true,
+    "lib": ["DOM", "ES2020"],
+    "baseUrl": ".",
+    "outDir": "./dist",
+    "paths": {
+      "*": ["node_modules/*", "src/types/*"]
+    },
+    "declaration": true,
+    "declarationDir": "./dist"
+  },
+  "include": ["src/**/*"],
+  "exclude": [
+    "node_modules",
+    "src/**/*.spec.ts",
+    "dist/**/*.*"
+  ],
+  "typedocOptions": {
+    "mode": "modules",
+    "out": "docs",
+    "exclude": "./src/**/*.spec.ts"
+  }
+}

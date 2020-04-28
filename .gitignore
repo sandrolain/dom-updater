@@ -1,0 +1,7 @@
+node_modules
+dist
+trash
+.DS_Store
+.vscode
+typedocs
+coverage
