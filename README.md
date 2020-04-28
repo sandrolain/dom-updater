@@ -1,1 +1,1 @@
-# HTNA: Light custom elements library
+# DOMUpdater: Comparator to apply DOM updates
