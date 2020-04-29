@@ -1,62 +1,84 @@
+export interface DOMUpdaterStats {
+  equals: number;
+  added: number;
+  removed: number;
+  replaced: number;
+  attributes: number;
+  executionTime: number;
+  updateTime: number;
+}
+
 
 export class DOMUpdater {
+  private stats: DOMUpdaterStats;
+
   constructor (
     private nodeFrom: Node,
     private nodeTo: Node,
     private asContent: boolean
   ) {}
 
-  update (): number {
-    if(this.asContent) {
-      return this.diffChildNodes(this.nodeFrom as Element, this.nodeTo as Element);
-    }
-
-    return this.diff(this.nodeFrom.parentNode, this.nodeFrom.nextSibling, this.nodeFrom, this.nodeTo);
+  update (): Promise<DOMUpdaterStats> {
+    this.stats = {
+      equals: 0,
+      added: 0,
+      removed: 0,
+      replaced: 0,
+      attributes: 0,
+      executionTime: 0,
+      updateTime: 0
+    };
+    const startExec = performance.now();
+    return new Promise((resolve) => {
+      window.requestAnimationFrame(() => {
+        const startUpdate = performance.now();
+        if(this.asContent) {
+          this.diffChildNodes(this.nodeFrom as Element, this.nodeTo as Element);
+        } else {
+          this.diff(this.nodeFrom.parentNode, this.nodeFrom.nextSibling, this.nodeFrom, this.nodeTo);
+        }
+        this.stats.updateTime    = performance.now() - startUpdate;
+        this.stats.executionTime = performance.now() - startExec;
+        resolve(this.stats);
+      });
+    });
   }
 
-  private diff (parentNode: Node, nextNode: Node, nodeFrom: Node, nodeTo: Node): number {
-    let mods: number = 0;
-
-    if(!parentNode) {
-      return mods;
-    }
-
-    if(!nodeTo) {
-      parentNode.removeChild(nodeFrom);
-      mods++;
-    } else if(!nodeFrom) {
-      if(nextNode) {
-        parentNode.insertBefore(nodeTo.cloneNode(true), nextNode);
+  private diff (parentNode: Node, nextNode: Node, nodeFrom: Node, nodeTo: Node): void {
+    if(parentNode) {
+      if(!nodeTo) {
+        parentNode.removeChild(nodeFrom);
+        this.stats.removed++;
+      } else if(!nodeFrom) {
+        if(nextNode) {
+          parentNode.insertBefore(nodeTo.cloneNode(true), nextNode);
+        } else {
+          parentNode.appendChild(nodeTo.cloneNode(true));
+        }
+        this.stats.added++;
+      } else if(!nodeTo.isEqualNode(nodeFrom)) {
+        if(nodeFrom.nodeType === Node.TEXT_NODE || nodeTo.nodeType === Node.TEXT_NODE
+        || nodeFrom.nodeType !== nodeTo.nodeType || nodeFrom.nodeName !== nodeTo.nodeName) {
+          parentNode.replaceChild(nodeTo.cloneNode(true), nodeFrom);
+          this.stats.replaced++;
+        } else if(nodeFrom instanceof Element && nodeTo instanceof Element) {
+          this.diffAttributes(nodeFrom, nodeTo);
+          this.diffChildNodes(nodeFrom, nodeTo);
+        }
       } else {
-        parentNode.appendChild(nodeTo.cloneNode(true));
+        this.stats.equals++;
       }
-      mods++;
-    } else if(!nodeTo.isEqualNode(nodeFrom)) {
-      if(nodeFrom.nodeType === Node.TEXT_NODE || nodeTo.nodeType === Node.TEXT_NODE
-      || nodeFrom.nodeType !== nodeTo.nodeType || nodeFrom.nodeName !== nodeTo.nodeName) {
-        parentNode.replaceChild(nodeTo.cloneNode(true), nodeFrom);
-        mods++;
-      } else if(nodeFrom instanceof Element && nodeTo instanceof Element) {
-        mods += this.diffAttributes(nodeFrom, nodeTo);
-        mods += this.diffChildNodes(nodeFrom, nodeTo);
-      }
-    } else {
-      console.log("Node equals", nodeTo, nodeFrom);
     }
-
-    return mods;
   }
 
-  private diffAttributes (nodeFrom: Element, nodeTo: Element): number {
-    let mods: number = 0;
-
+  private diffAttributes (nodeFrom: Element, nodeTo: Element): void {
     if(nodeFrom.hasAttributes() || nodeTo.hasAttributes()) {
       const toAttributesEntries = Object.entries(nodeTo.attributes);
 
       for(const [name, attr] of toAttributesEntries) {
         if(nodeFrom.getAttribute(name) !== attr.value) {
           nodeFrom.setAttribute(name, attr.value);
-          mods++;
+          this.stats.attributes++;
         }
       }
 
@@ -65,17 +87,13 @@ export class DOMUpdater {
       for(const name of fromAttributesNames) {
         if(!nodeTo.hasAttribute(name)) {
           nodeFrom.removeAttribute(name);
-          mods++;
+          this.stats.attributes++;
         }
       }
     }
-
-    return mods;
   }
 
-  private diffChildNodes (fromNode: Element, toNode: Element): number {
-    let mods = 0;
-
+  private diffChildNodes (fromNode: Element, toNode: Element): void {
     if(fromNode.hasChildNodes() || toNode.hasChildNodes()) {
       const fromChildNodes = Array.from(fromNode.childNodes);
       const toChildNodes   = Array.from(toNode.childNodes);
@@ -131,16 +149,37 @@ export class DOMUpdater {
         }
       }
 
-      console.log("DOMUpdater -> arr2", nodePairsOptim);
-
       for(let i = 0, len = nodePairsOptim.length, nextNode: Node; i < len; i++) {
         if(nodePairsOptim[i][0]) {
           nextNode = nodePairsOptim[i][0].nextSibling;
         }
-        mods += this.diff(fromNode, nextNode, nodePairsOptim[i][0], nodePairsOptim[i][1]);
+        this.diff(fromNode, nextNode, nodePairsOptim[i][0], nodePairsOptim[i][1]);
       }
     }
-
-    return mods;
   }
+}
+
+
+export function updateDOM (nodeFrom: Node, nodeTo: Node): Promise<DOMUpdaterStats> {
+  const updater = new DOMUpdater(
+    nodeFrom,
+    nodeTo,
+    false
+  );
+  return updater.update();
+}
+
+export function updateDOMContent (nodeFrom: Node, nodeTo: Node): Promise<DOMUpdaterStats> {
+  const updater = new DOMUpdater(
+    nodeFrom,
+    nodeTo,
+    true
+  );
+  return updater.update();
+}
+
+export function htmlToDOMFragment (html: string): DocumentFragment {
+  const tpl = document.createElement("template");
+  tpl.innerHTML = html;
+  return tpl.content.cloneNode(true) as DocumentFragment;
 }

@@ -1,43 +1,49 @@
-import { DOMUpdater } from "../dist/esm/index.js";
+import { updateDOMContent, htmlToDOMFragment } from "../dist/esm/index.js";
 
 const list = [];
 
-const getNewTree = () => {
-  const tpl = document.createElement("template");
-  tpl.innerHTML = /*html*/`
-  <div>
-    <strong>FOO</strong>
-  </div>
-  <div>
-    ${list.length % 2 === 0 ? "<hr>" : ""}
-    <div><em>BAR</em></div>
-    ${list.length % 2 === 0 ? "<hr>" : ""}
-    ${list.length % 2 === 0 ? "<hr>" : ""}
-    ${list.length % 2 === 0 ? "<hr>" : ""}
-    <hr>
-  </div>
-  <div>
-    ${Math.random()}
-    ${list.map((txt) => `<div>${txt}</div>`).join("")}
-    ${Math.random()}
-  </div>
 
-  `;
-  return [tpl.content.cloneNode(true), tpl.innerHTML];
+const getNewHTML = () => (/*html*/`
+<div>
+  <strong>FOO</strong>
+</div>
+<div>
+  ${Math.random()}
+  ${list.map((txt) => `<div>${txt}</div>`).join("")}
+  ${Math.random()}
+</div>
+<div>
+  <div><em>BAR</em></div>
+  <hr>
+</div>
+`);
+
+const getNewTree = () => {
+  return htmlToDOMFragment(getNewHTML());
 };
 
-const render = () => {
+function updateWithInnerHTML (el, html) {
+  return new Promise((resolve) => {
+    window.requestAnimationFrame(() => {
+      const start = performance.now();
+      el.innerHTML = html;
+      resolve(performance.now() - start);
+    });
+  });
+}
+
+const render = async () => {
   console.clear();
-
   const el = document.getElementById("test");
-  const [updEl, html] = getNewTree();
-  console.log("html", html);
-  // el.innerHTML = html;
-  // return;
 
-  const upd = new DOMUpdater(el, updEl, true);
-  const num = upd.update();
-  console.log("render -> upd.update()", num);
+  const stats = updateWithInnerHTML(el, getNewHTML());
+
+
+  // const updEl = getNewTree();
+  // console.log("updEl", updEl);
+  // const stats = updateDOMContent(el, updEl, true);
+
+  console.log("stats", JSON.stringify(await stats));
 
 };
 
@@ -45,6 +51,8 @@ const render = () => {
 
 
 document.addEventListener("click", () => {
-  list.push(Math.random());
+  for(let i = 0; i < 100; i++) {
+    list.push(Math.random());
+  }
   render();
 });
