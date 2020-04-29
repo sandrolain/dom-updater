@@ -1,1 +1,1 @@
-# DOMUpdater: Comparator to apply DOM updates
+# DOMUpdater: DOM to DOM comparator and updater
