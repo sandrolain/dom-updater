@@ -1,13 +1,13 @@
 export interface DOMUpdaterStats {
   equals: number;
-  added: number;
+  inserted: number;
+  appended: number;
   removed: number;
   replaced: number;
   attributes: number;
   executionTime: number;
   updateTime: number;
 }
-
 
 export class DOMUpdater {
   private stats: DOMUpdaterStats;
@@ -21,7 +21,8 @@ export class DOMUpdater {
   update (): Promise<DOMUpdaterStats> {
     this.stats = {
       equals: 0,
-      added: 0,
+      inserted: 0,
+      appended: 0,
       removed: 0,
       replaced: 0,
       attributes: 0,
@@ -52,10 +53,11 @@ export class DOMUpdater {
       } else if(!nodeFrom) {
         if(nextNode) {
           parentNode.insertBefore(nodeTo.cloneNode(true), nextNode);
+          this.stats.inserted++;
         } else {
           parentNode.appendChild(nodeTo.cloneNode(true));
+          this.stats.appended++;
         }
-        this.stats.added++;
       } else if(!nodeTo.isEqualNode(nodeFrom)) {
         if(nodeFrom.nodeType === Node.TEXT_NODE || nodeTo.nodeType === Node.TEXT_NODE
         || nodeFrom.nodeType !== nodeTo.nodeType || nodeFrom.nodeName !== nodeTo.nodeName) {
