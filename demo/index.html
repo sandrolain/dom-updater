@@ -4,6 +4,11 @@
   </head>
   <body>
     <div id="test"></div>
+    <div id="ctrl">
+      ${"test.num"}<br/>
+      ${(vars) => (vars.test.num * 2).toFixed(2)}<br/>
+      ${() => foo}
+    </div>
     <script type="module" src="./main.js"></script>
   </body>
 </html>
