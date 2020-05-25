@@ -2,26 +2,39 @@ import { watch } from "./utils";
 import { DOMTemplateBuilder, getTemplateBuilder } from "./DOMTemplateBuilder";
 import { updateDOM } from "./DOMUpdater";
 
+export interface DOMControllerArguments<T> {
+  element: HTMLElement;
+  initialState?: Record<string, T>;
+  templateHTML?: string;
+  init?: (stateProxy: ProxyHandler<Record<string, T>>) => void;
+}
+
 export class DOMController<T=any> {
   private builder: DOMTemplateBuilder;
-  private stateProxy: ProxyHandler<Record<string, T>>;
-  private rafNum: number;
+  public readonly state: ProxyHandler<Record<string, T>>;
+  private rafRequest: number;
+  private node: HTMLElement;
+  private stateObj: Record<string, T> = {};
+  private templateHTML?: string;
+  private controllerFn?: (stateProxy: ProxyHandler<Record<string, T>>) => void;
 
-  constructor (
-    private node: HTMLElement,
-    private controllerFn: (stateProxy: ProxyHandler<Record<string, T>>) => void,
-    private state: Record<string, T> = {},
-    private templateHTML?: string
-  ) {
+  constructor ({ element, initialState, templateHTML, init }: DOMControllerArguments<T>) {
+    this.node         = element;
+    this.stateObj     = initialState || {};
+    this.templateHTML = templateHTML;
+    this.controllerFn = init;
+
     if(!this.templateHTML) {
       this.templateHTML = this.node.outerHTML;
     }
     this.updateTemplateBuilder();
-    this.stateProxy = watch(this.state, () => {
+    this.state = watch(this.stateObj, () => {
       this.triggerDOMUpdate();
     });
 
-    this.controllerFn(this.stateProxy);
+    if(this.controllerFn) {
+      this.controllerFn(this.state);
+    }
     this.triggerDOMUpdate();
   }
 
@@ -34,13 +47,17 @@ export class DOMController<T=any> {
     this.builder = getTemplateBuilder(this.templateHTML, DOMController.getTemplateArguments());
   }
 
+  setState (newState: Record<string, T>): void {
+    Object.assign(this.state, newState);
+  }
+
   private triggerDOMUpdate (): void {
-    if(this.rafNum) {
-      window.cancelAnimationFrame(this.rafNum);
-      this.rafNum = null;
+    if(this.rafRequest) {
+      window.cancelAnimationFrame(this.rafRequest);
+      this.rafRequest = null;
     }
-    this.rafNum = window.requestAnimationFrame(() => {
-      this.rafNum = null;
+    this.rafRequest = window.requestAnimationFrame(() => {
+      this.rafRequest = null;
       const newTemplateNode = this.builder.getTemplateNode(this.state).content;
       updateDOM(this.node, newTemplateNode);
     });
@@ -48,30 +65,11 @@ export class DOMController<T=any> {
 
   private static args: Map<string, any> = new Map();
 
-  static setTempleteArgument (name: string, value: any): void {
+  static setTemplateArgument (name: string, value: any): void {
     this.args.set(name, value);
   }
 
   static getTemplateArguments (): Map<string, any> {
     return new Map(this.args.entries());
   }
-
-  // private static controllers: Map<string, DOMController> = new Map();
-
-  // static register (selector: string, controller: DOMController): void {
-  //   this.controllers.set(selector, controller);
-  //   this.activate(selector);
-  // }
-
-  // static async activate (selector: string): Promise<DOMController> {
-  //   if(!this.controllers.has(selector)) {
-  //     throw new Error("");
-  //   }
-
-  //   const controller = this.controllers.get(selector);
-
-  //   controller
-
-  //   return controller;
-  // }
 }

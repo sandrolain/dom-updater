@@ -66,23 +66,26 @@ document.addEventListener("click", () => {
   render();
 });
 
-DOMController.setTempleteArgument("foo", "bar");
+DOMController.setTemplateArgument("foo", "bar");
 
 
-new DOMController(
-  document.getElementById("ctrl"),
-  (state) => {
-    state.test.num = 999;
-    setInterval(() => {
-      state.test.num = Math.random()
-      state.test.num = Math.random()
-      state.test.num = Math.random()
-      console.log("state.test.num", state.test.num)
-    }, 3000);
-  },
-  {
+new DOMController({
+  element: document.getElementById("ctrl"),
+  initialState: {
     test: {
       num: 0
+    },
+    aaa: {
+      prova: 0
     }
+  },
+  init: function (state) {
+    state.test.num = 999;
+    setInterval(() => {
+      state.test.num = Math.random();
+      state.test.num = Math.random();
+      state.test.num = Math.random();
+      console.log("state.test.num", state.test.num);
+    }, 1000);
   }
-)
+});
