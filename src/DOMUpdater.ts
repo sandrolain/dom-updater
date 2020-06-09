@@ -102,28 +102,32 @@ export class DOMUpdater {
       const fromChildNodesC = fromChildNodes.slice();
       const toChildNodesC   = toChildNodes.slice();
 
-      for(const nodeFrom of fromChildNodesC) {
+      for(const nodeTo of toChildNodesC) {
         let index = 0;
         let found = -1;
-        for(const nodeTo of toChildNodesC) {
+        // Try to find next equal node
+        // This detect if node has removed between two children
+        for(const nodeFrom of fromChildNodesC) {
           if(nodeFrom.isEqualNode(nodeTo)) {
             found = index;
             break;
           }
           index++;
         }
+        // If equal node has found consider all previous as removed
         if(found > -1) {
           for(let i = 0; i < found; i++) {
-            nodePairs.push([null, toChildNodesC.shift()]);
+            nodePairs.push([fromChildNodesC.shift(), null]);
           }
-          nodePairs.push([nodeFrom, toChildNodesC.shift()]);
+          nodePairs.push([fromChildNodesC.shift(), nodeTo]);
+        // Else consider destination node the as new node
         } else {
-          nodePairs.push([nodeFrom, null]);
+          nodePairs.push([null, nodeTo]);
         }
       }
 
-      while(toChildNodesC.length > 0) {
-        nodePairs.push([null, toChildNodesC.shift()]);
+      while(fromChildNodesC.length > 0) {
+        nodePairs.push([fromChildNodesC.shift(), null]);
       }
 
       // Optimize the positions to perform a single node replace action,
