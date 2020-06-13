@@ -69,6 +69,9 @@ export class DOMTemplateBuilder {
           result = getDescendantProp(vars, value);
         }
         if(result !== null && result !== undefined) {
+          if(Array.isArray(result)) {
+            result = result.join("");
+          }
           html.push(result);
         }
       }
