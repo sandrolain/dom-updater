@@ -6,6 +6,8 @@ export interface DOMUpdaterStats {
   replaced: number;
   attributes: number;
   time: number;
+  newNodes: Node[];
+  newElements: Element[];
 }
 
 export class DOMUpdater {
@@ -25,7 +27,9 @@ export class DOMUpdater {
       removed: 0,
       replaced: 0,
       attributes: 0,
-      time: 0
+      time: 0,
+      newNodes: [],
+      newElements: []
     };
 
     const startUpdate = performance.now();
@@ -38,8 +42,17 @@ export class DOMUpdater {
       }
       this.diff(this.nodeFrom.parentNode, this.nodeFrom.nextSibling, this.nodeFrom, nodeTo);
     }
-    this.stats.time    = performance.now() - startUpdate;
+    this.stats.time = performance.now() - startUpdate;
     return this.stats;
+  }
+
+  private getNewNode (node: Node): Node {
+    const newNode = node.cloneNode(true);
+    this.stats.newNodes.push(newNode);
+    if(newNode instanceof Element) {
+      this.stats.newElements.push(newNode);
+    }
+    return newNode;
   }
 
   private diff (parentNode: Node, nextNode: Node, nodeFrom: Node, nodeTo: Node): void {
@@ -49,16 +62,16 @@ export class DOMUpdater {
         this.stats.removed++;
       } else if(!nodeFrom) {
         if(nextNode) {
-          parentNode.insertBefore(nodeTo.cloneNode(true), nextNode);
+          parentNode.insertBefore(this.getNewNode(nodeTo), nextNode);
           this.stats.inserted++;
         } else {
-          parentNode.appendChild(nodeTo.cloneNode(true));
+          parentNode.appendChild(this.getNewNode(nodeTo));
           this.stats.appended++;
         }
       } else if(!nodeTo.isEqualNode(nodeFrom)) {
         if(nodeFrom.nodeType === Node.TEXT_NODE || nodeTo.nodeType === Node.TEXT_NODE
         || nodeFrom.nodeType !== nodeTo.nodeType || nodeFrom.nodeName !== nodeTo.nodeName) {
-          parentNode.replaceChild(nodeTo.cloneNode(true), nodeFrom);
+          parentNode.replaceChild(this.getNewNode(nodeTo), nodeFrom);
           this.stats.replaced++;
         } else if(nodeFrom instanceof Element && nodeTo instanceof Element) {
           this.diffAttributes(nodeFrom, nodeTo);
