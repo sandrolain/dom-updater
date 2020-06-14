@@ -4,10 +4,12 @@ export interface DOMUpdaterStats {
   appended: number;
   removed: number;
   replaced: number;
+  updated: number;
   attributes: number;
   time: number;
   newNodes: Node[];
   newElements: Element[];
+  updateElements: Element[];
 }
 
 export class DOMUpdater {
@@ -26,10 +28,12 @@ export class DOMUpdater {
       appended: 0,
       removed: 0,
       replaced: 0,
+      updated: 0,
       attributes: 0,
       time: 0,
       newNodes: [],
-      newElements: []
+      newElements: [],
+      updateElements: []
     };
 
     const startUpdate = performance.now();
@@ -85,21 +89,25 @@ export class DOMUpdater {
 
   private diffAttributes (nodeFrom: Element, nodeTo: Element): void {
     if(nodeFrom.hasAttributes() || nodeTo.hasAttributes()) {
+      let modifiedNum: number = 0;
       for(let i = 0, len = nodeTo.attributes.length; i < len; i++) {
         const attr = nodeTo.attributes[i];
         if(nodeFrom.getAttribute(attr.name) !== attr.value) {
           nodeFrom.setAttribute(attr.name, attr.value);
-          this.stats.attributes++;
+          modifiedNum++;
         }
       }
-
       const fromAttributesNames = nodeFrom.getAttributeNames();
-
       for(const name of fromAttributesNames) {
         if(!nodeTo.hasAttribute(name)) {
           nodeFrom.removeAttribute(name);
-          this.stats.attributes++;
+          modifiedNum++;
         }
+      }
+      this.stats.attributes += modifiedNum;
+      if(modifiedNum > 0) {
+        this.stats.updated++;
+        this.stats.updateElements.push(nodeFrom);
       }
     }
   }
