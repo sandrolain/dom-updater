@@ -91,6 +91,9 @@ new DOMController({
     list: []
   },
   init: function (state) {
+    this.addListener("#ctrl", "click", function () {
+      console.log("Hello ctrl!");
+    });
     this.addListener(".item", "click", function () {
       console.log(this);
     });
@@ -105,6 +108,7 @@ new DOMController({
       state.test.num = Math.random();
       console.log("state.test.num", state.test.num);
       state.list.push(state.test.num);
+      state.list = state.list.slice(-10);
     }, 1000);
   }
 });

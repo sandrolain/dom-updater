@@ -18,6 +18,7 @@ export class DOMController<T=any> {
   private template?: string | DOMTemplateBuilder;
   private controllerFn?: (stateProxy: ProxyHandler<Record<string, T>>) => void;
   private listeners: Map<string, Map<string, Set<(e: Event) => any>>> = new Map();
+  private addedListeners: WeakMap<Element, { eventName: string; listener: (e: Event) => any }[]> = new WeakMap();
 
   constructor ({ element, initialState, template, init }: DOMControllerArguments<T>) {
     this.node         = element;
@@ -68,55 +69,97 @@ export class DOMController<T=any> {
       listenersSet = new Set();
       listenerTypes.set(eventName, listenersSet);
     }
-
     return listenersSet;
+  }
+
+  private addListenerToNode (node: Element, eventName: string, listener: (event: Event) => any): void {
+    node.addEventListener(eventName, listener);
+    if(!this.addedListeners.has(node)) {
+      this.addedListeners.set(node, []);
+    }
+    this.addedListeners.get(node).push({
+      eventName,
+      listener
+    });
   }
 
   addListener (selector: string, eventName: string, listener: (event: Event) => any): void {
     const listenersSet = this.getSelectorListeners(selector, eventName);
     listenersSet.add(listener);
-    const nodes = this.node.querySelectorAll(selector);
-    for(const node of Array.from(nodes)) {
-      node.addEventListener(eventName, listener);
+    const nodes = Array.from(this.node.querySelectorAll(selector));
+    if(this.node.matches(selector)) {
+      nodes.unshift(this.node);
+    }
+    for(const node of nodes) {
+      this.addListenerToNode(node, eventName, listener);
     }
   }
 
   removeListener (selector: string, eventName: string, listener: (event: Event) => any): void {
     const listenersSet = this.getSelectorListeners(selector, eventName);
     listenersSet.delete(listener);
-    const nodes = this.node.querySelectorAll(selector);
-    for(const node of Array.from(nodes)) {
+    const nodes = Array.from(this.node.querySelectorAll(selector));
+    if(this.node.matches(selector)) {
+      nodes.unshift(this.node);
+    }
+    for(const node of nodes) {
       node.removeEventListener(eventName, listener);
     }
   }
 
-  private addListenersToTree (): void {
+  private addListenersToTree (node: Element): void {
     this.listeners.forEach((listenerTypes, selector) => {
-      const nodes = this.node.querySelectorAll(selector);
+      const nodes = node.querySelectorAll(selector);
       for(let i = 0, len = nodes.length; i < len; i++) {
         const node = nodes[i];
         listenerTypes.forEach((listeners, eventName) => {
           listeners.forEach((listener) => {
             node.removeEventListener(eventName, listener);
-            node.addEventListener(eventName, listener);
+            this.addListenerToNode(node, eventName, listener);
           });
         });
       }
     });
   }
 
-  private addListenersToElements (elements: Element[]): void {
-    this.listeners.forEach((listenerTypes, selector) => {
-      elements.forEach((element) => {
-        if(element.matches(selector)) {
-          listenerTypes.forEach((listeners, eventName) => {
-            listeners.forEach((callback) => {
-              element.addEventListener(eventName, callback);
+  private addListenersToElements (elements: Element[], applyToChildren: boolean): void {
+    console.log("addListenersToElements -> elements", elements)
+    if(elements.length > 0) {
+      this.listeners.forEach((listenerTypes, selector) => {
+        elements.forEach((element) => {
+          const nodesToApply = [];
+          if(element.matches(selector)) {
+            nodesToApply.push(element);
+          }
+          if(applyToChildren) {
+            nodesToApply.push(...Array.from(element.querySelectorAll(selector)));
+          }
+          for(let i = 0, len = nodesToApply.length; i < len; i++) {
+            const node = nodesToApply[i];
+            listenerTypes.forEach((listeners, eventName) => {
+              listeners.forEach((listener) => {
+                this.addListenerToNode(node, eventName, listener);
+              });
             });
-          });
-        }
+          }
+        });
       });
-    });
+    }
+  }
+
+  private updateListenersToElements (elements: Element[]): void {
+    if(elements.length > 0) {
+      for(const element of elements) {
+        const listeners = this.addedListeners.get(element);
+        if(listeners) {
+          for(const item of listeners) {
+            element.removeEventListener(item.eventName, item.listener);
+          }
+          this.addedListeners.delete(element);
+        }
+      }
+      this.addListenersToElements(elements, false);
+    }
   }
 
   private triggerDOMUpdate (): void {
@@ -128,7 +171,8 @@ export class DOMController<T=any> {
       this.rafRequest = null;
       const newTemplateNode = this.builder.getTemplateNode(this.state).content;
       const stats = updateDOM(this.node, newTemplateNode);
-      this.addListenersToElements(stats.newElements);
+      this.addListenersToElements(stats.newElements, true);
+      this.updateListenersToElements(stats.updateElements);
     });
   }
 
