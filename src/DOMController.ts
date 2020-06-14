@@ -123,7 +123,6 @@ export class DOMController<T=any> {
   }
 
   private addListenersToElements (elements: Element[], applyToChildren: boolean): void {
-    console.log("addListenersToElements -> elements", elements)
     if(elements.length > 0) {
       this.listeners.forEach((listenerTypes, selector) => {
         elements.forEach((element) => {
